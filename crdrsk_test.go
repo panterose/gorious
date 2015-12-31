@@ -1,41 +1,40 @@
-package main
+package sim
 
 import (
 	"fmt"
 	"strconv"
+	"testing"
 	"time"
-
-	"github.com/panterose/gorious/sim"
 )
 
-func main() {
-	const nbTrades = 100000
-	const nbNetting = 100
+func TestAll(t *testing.T) {
+	const nbTrades = 1000000
+	const nbNetting = 1000
 	const tradePerNetting = nbTrades / nbNetting
 
 	//create the output channel
 	results := make(chan float32)
-	trades := make(chan sim.Trade)
-	prices := make(chan *sim.TradeSimulation)
+	trades := make(chan Trade)
+	prices := make(chan *TradeSimulation)
 
-	nettings := make([]sim.Netting, nbNetting)
+	nettings := make([]Netting, nbNetting)
 	for n := 0; n < nbNetting; n++ {
-		trades := make(map[int]sim.Trade, tradePerNetting)
+		trades := make(map[int]Trade, tradePerNetting)
 		for t := 0; t < tradePerNetting; t++ {
-			trades[t] = sim.NewTrade(n + t*nbNetting)
+			trades[t] = NewTrade(n + t*nbNetting)
 		}
-		nettings[n] = sim.Netting{"netting" + strconv.Itoa(n), trades}
+		nettings[n] = Netting{"netting" + strconv.Itoa(n), trades}
 	}
 
 	//setup simulation and aggregation
-	sim.Simulate(0, trades, prices)
-	sim.NettingRouter(nettings, results, prices)
+	Simulate(0, trades, prices)
+	NettingRouter(nettings, results, prices)
 
 	start := time.Now()
 
 	//send some trades to be prices
 	for i := 0; i < nbTrades; i++ {
-		trades <- sim.NewTrade(i)
+		trades <- NewTrade(i)
 	}
 	close(trades)
 

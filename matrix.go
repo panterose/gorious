@@ -50,15 +50,15 @@ func (m *Matrix) Redims(nr, nc int) error {
 	ar, ac := m.Dims()
 	mr, mc := min(ar, nr), min(ac, nc)
 	oldSlice := m.array
+	fmt.Printf("Will copy only: %d / %d \n", mr, mc)
 
-	fmt.Println("Need to grow: %d / %d", mr, mc)
 	m.array = make([]float32, nr*nc)
 	m.rows = nr
 	m.cols = nc
 	//copy the old values
 	for r := 0; r < mr; r++ {
 		for c := 0; c < mc; c++ {
-			fmt.Println("Assigning %v to %v / %v", oldSlice[r*ar+c], r, c)
+			fmt.Printf("Assigning %v to %v / %v \n", oldSlice[r*ar+c], r, c)
 			m.array[r*m.cols+c] = oldSlice[r*ac+c]
 		}
 	}
@@ -79,14 +79,14 @@ func (m *Matrix) Get(r, c int) (float32, error) {
 }
 
 //Mult multiply the all element of the matrix by a scalar
-func (a *Matrix) Mult(s float32) error {
-	ar, ac := a.Dims()
-	for r := 0; r < ar; r++ {
-		for c := 0; c < ac; c++ {
-			a.array[r*ac+c] = a.array[r*ac+c] * s
+func (a *Matrix) Mult(s float32) (Matrix, error) {
+	m := NewMatrix(a.rows, a.cols)
+	for r := 0; r < a.rows; r++ {
+		for c := 0; c < a.cols; c++ {
+			m.array[r*a.cols+c] = a.array[r*a.cols+c] * s
 		}
 	}
-	return nil
+	return m, nil
 }
 
 //Add a matrix to current one, while growing if necessary
@@ -102,12 +102,13 @@ func (a *Matrix) Add(b *Matrix) error {
 	// check if you need to grow
 	mr, mc := max(ar, br), max(ac, bc)
 	if ar < br || ac < bc {
+		fmt.Printf("Need to grow: %d / %d \n", mr, mc)
 		a.Redims(mr, mc)
 	}
 
 	for r := 0; r < br; r++ {
 		for c := 0; c < bc; c++ {
-			fmt.Println("Assigning %v to %v / %v", b.array[r*br+c], r, c)
+			//fmt.Printf("Adding %v to %v / %v\n", b.array[r*br+c], r, c)
 			a.array[r*a.cols+c] = a.array[r*a.cols+c] + b.array[r*bc+c]
 		}
 	}

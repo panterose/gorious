@@ -54,12 +54,12 @@ func NettingRouter(nettings []Netting, results chan float32, prices chan *TradeS
 }
 
 func NettingAggregation(results chan float32, flow NettingFlow) {
-	var total = float32(0)
+	var total = NewMatrix(1000, 0)
 	for ts := range flow.channel {
 		//fmt.Printf("aggregating price %v for %v\n", ts.Id, flow.netting.Name)
-		total = total + ts.array[0]
+		total.Add(&ts.Matrix)
 	}
 
-	fmt.Printf("Finished aggregating %v: total = %v\n", flow.netting.Name, total)
-	results <- total
+	fmt.Printf("Finished aggregating %v: total = %v\n", flow.netting.Name, total.array[0])
+	results <- total.array[0]
 }

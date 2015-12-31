@@ -11,14 +11,13 @@ type Market struct {
 }
 
 func (mkt *Market) Price(trd Trade) (*TradeSimulation, error) {
-	price := mkt.Clone()
-	price.Mult(trd.Mtm)
+	price, _ := mkt.Mult(trd.Mtm)
 	return &TradeSimulation{trd, price}, nil
 }
 
 const rows = 1000
 const cols = 100
-const nbPricer = 1000
+const nbPricer = 10
 
 //Simulate a market and price all trades with given ids and pass them to a givn channel
 func Simulate(seed int64, trades chan Trade, prices chan *TradeSimulation) error {
