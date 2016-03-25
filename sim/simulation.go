@@ -3,6 +3,7 @@ package sim
 import (
 	"fmt"
 	"sync"
+	"runtime"
 )
 
 //Market is the object representing some Market Data used for simulation
@@ -10,21 +11,20 @@ type Market struct {
 	Matrix
 }
 
-func (mkt *Market) Price(trd Trade) (*TradeSimulation, error) {
+func (mkt *Market) Price(trd Trade) (TradeSimulation, error) {
 	price, _ := mkt.Mult(trd.Mtm)
-	return &TradeSimulation{trd, price}, nil
+	return TradeSimulation{trd, price}, nil
 }
 
-const rows = 1000
-const cols = 100
-const nbPricer = 10
+
 
 //Simulate a market and price all trades with given ids and pass them to a givn channel
-func Simulate(seed int64, trades chan Trade, prices chan *TradeSimulation) error {
-	market := &Market{NewRandomMatrix(rows, cols, 0)}
-	var wg sync.WaitGroup
-	wg.Add(nbPricer)
-	for i := 0; i < nbPricer; i++ {
+func Simulate(market Market, trades chan Trade) (chan TradeSimulation, error) {
+	nbPricers := runtime.NumCPU() * 20
+	prices := make(chan TradeSimulation)
+	var pricers sync.WaitGroup
+	pricers.Add(nbPricers)
+	for i := 0; i < nbPricers; i++ {
 		//fmt.Println("ready to price", id)
 		go func(name int) {
 			for trd := range trades {
@@ -33,14 +33,14 @@ func Simulate(seed int64, trades chan Trade, prices chan *TradeSimulation) error
 				prices <- tradePrice
 			}
 			fmt.Printf("Pricer %v is done\n", name)
-			wg.Done()
+			pricers.Done()
 		}(i)
 	}
 
 	go func() {
-		wg.Wait()
+		pricers.Wait()
 		fmt.Println("Closing prices channel")
 		close(prices)
 	}()
-	return nil
+	return prices, nil
 }

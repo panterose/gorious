@@ -8,7 +8,7 @@ import (
 //Matrix simple matrix object
 type Matrix struct {
 	rows, cols int
-	array      []float32
+	slice      []float32
 }
 
 //NewMatrix constructor
@@ -39,7 +39,7 @@ func (m *Matrix) Clone() Matrix {
 	copy := NewMatrix(ar, ac)
 	for r := 0; r < ar; r++ {
 		for c := 0; c < ac; c++ {
-			copy.array[r*ac+c] = m.array[r*ac+c]
+			copy.slice[r*ac+c] = m.slice[r*ac+c]
 		}
 	}
 	return copy
@@ -49,17 +49,17 @@ func (m *Matrix) Clone() Matrix {
 func (m *Matrix) Redims(nr, nc int) error {
 	ar, ac := m.Dims()
 	mr, mc := min(ar, nr), min(ac, nc)
-	oldSlice := m.array
-	fmt.Printf("Will copy only: %d / %d \n", mr, mc)
+	oldSlice := m.slice
+	//fmt.Printf("Will copy only: %d / %d \n", mr, mc)
 
-	m.array = make([]float32, nr*nc)
+	m.slice = make([]float32, nr*nc)
 	m.rows = nr
 	m.cols = nc
 	//copy the old values
 	for r := 0; r < mr; r++ {
 		for c := 0; c < mc; c++ {
-			fmt.Printf("Assigning %v to %v / %v \n", oldSlice[r*ar+c], r, c)
-			m.array[r*m.cols+c] = oldSlice[r*ac+c]
+			//fmt.Printf("Assigning %v to %v / %v \n", oldSlice[r*ar+c], r, c)
+			m.slice[r*m.cols+c] = oldSlice[r*ac+c]
 		}
 	}
 	return nil
@@ -75,7 +75,7 @@ func (m *Matrix) Get(r, c int) (float32, error) {
 		return 0, fmt.Errorf("matrix.get: cols %d > %d", c, m.cols)
 	}
 
-	return m.array[r*m.cols+c], nil
+	return m.slice[r*m.cols+c], nil
 }
 
 //Mult multiply the all element of the matrix by a scalar
@@ -83,33 +83,33 @@ func (a *Matrix) Mult(s float32) (Matrix, error) {
 	m := NewMatrix(a.rows, a.cols)
 	for r := 0; r < a.rows; r++ {
 		for c := 0; c < a.cols; c++ {
-			m.array[r*a.cols+c] = a.array[r*a.cols+c] * s
+			m.slice[r*a.cols+c] = a.slice[r*a.cols+c] * s
 		}
 	}
 	return m, nil
 }
 
 //Add a matrix to current one, while growing if necessary
-func (a *Matrix) Add(b *Matrix) error {
+func (a *Matrix) Add(b Matrix) error {
 	ar, ac := a.Dims()
 	br, bc := b.Dims()
 	if br == 0 && bc == 0 {
 		//nothing to add
-		fmt.Println("Nothing to add")
+		//fmt.Println("Nothing to add")
 		return nil
 	}
 
 	// check if you need to grow
 	mr, mc := max(ar, br), max(ac, bc)
 	if ar < br || ac < bc {
-		fmt.Printf("Need to grow: %d / %d \n", mr, mc)
+		//fmt.Printf("Need to grow: %d / %d \n", mr, mc)
 		a.Redims(mr, mc)
 	}
 
 	for r := 0; r < br; r++ {
 		for c := 0; c < bc; c++ {
 			//fmt.Printf("Adding %v to %v / %v\n", b.array[r*br+c], r, c)
-			a.array[r*a.cols+c] = a.array[r*a.cols+c] + b.array[r*bc+c]
+			a.slice[r*a.cols+c] = a.slice[r*a.cols+c] + b.slice[r*bc+c]
 		}
 	}
 

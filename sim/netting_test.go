@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"sync"
 )
 
 func TestNettingAggregation(t *testing.T) {
@@ -12,12 +13,14 @@ func TestNettingAggregation(t *testing.T) {
 		2: Trade{2, "id2", 2.0},
 	}
 	netting := Netting{"n", trades}
-	flow := NettingFlow{netting, make(chan *TradeSimulation)}
+	flow := NettingFlow{netting, make(chan TradeSimulation)}
 	result := make(chan float32)
 
-	go NettingAggregation(result, flow)
-	flow.channel <- &TradeSimulation{trades[1], NewRandomMatrix(1, 2, 0)}
-	flow.channel <- &TradeSimulation{trades[2], NewRandomMatrix(1, 2, 1)}
+	var allTradesForNettings sync.WaitGroup
+	allTradesForNettings.Add(1)
+	go NettingAggregation(result, flow, allTradesForNettings)
+	flow.channel <- TradeSimulation{trades[1], NewRandomMatrix(1, 2, 0)}
+	flow.channel <- TradeSimulation{trades[2], NewRandomMatrix(1, 2, 1)}
 
 	close(flow.channel)
 
