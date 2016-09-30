@@ -13,7 +13,7 @@ func main() {
 	const rows = 1000
 	const cols = 100
 
-	nbNetting := 5
+	nbNetting := 1000
 	nbTrades := nbNetting * 1000
 	tradePerNetting := nbTrades / nbNetting
 
@@ -27,7 +27,7 @@ func main() {
 		name := "netting" + strconv.Itoa(n)
 		nettings[n] = sim.Netting{Name: name, Trades: trades}
 
-		fmt.Printf("Netting %v = %v  : %v \n", name, nettings[n], time.Now())
+		//fmt.Printf("Netting %v = %v  : %v \n", name, nettings[n], time.Now())
 	}
 
 	//setup simulation and aggregation
@@ -42,8 +42,8 @@ func main() {
 
 	pricer := sim.Pricer{Market: market, In: trades, Out: prices}
 	netter := sim.NettingGroup{Nettings: make(map[string]*sim.NettingEngine), Prices: prices, Results: results}
-	pricer.Init(ctx, 2, 100)
-	netter.Init(ctx, nettings, 5)
+	pricer.Init(ctx, 10, tradePerNetting)
+	netter.Init(ctx, nettings, 10, tradePerNetting)
 	start := time.Now()
 
 	//send some trades to be prices

@@ -29,7 +29,7 @@ func TestNettingEngineWorker(t *testing.T) {
 	ne := NettingEngine{netting1, mat, in, out}
 	price := NewRandomMatrix(1, 2, 1)
 	ctx := context.Background()
-	go ne.newNettingWorker(ctx)()
+	go ne.newNettingWorker(ctx, 1)()
 
 	in <- NettingRequest{trade11, price}
 	close(in)
@@ -50,10 +50,10 @@ func TestNettingGroup(t *testing.T) {
 	nettingMap := make(map[string]*NettingEngine)
 	ng := NettingGroup{nettingMap, in, out}
 	ctx := context.Background()
-	ng.Init(ctx, []Netting{netting1, netting2}, 1)
+	ng.Init(ctx, []Netting{netting1, netting2}, 1, 1)
 
-	ne1 := ng.nettings["n1"]
-	ne2 := ng.nettings["n2"]
+	ne1 := ng.Nettings["n1"]
+	ne2 := ng.Nettings["n2"]
 	assert.Equal(t, netting1, ne1.netting)
 	assert.Equal(t, trade11, ne1.netting.Trades[1])
 	assert.Equal(t, trade12, ne1.netting.Trades[2])
