@@ -77,6 +77,16 @@ func testMult(t *testing.T) {
 	assert.Equal(t, float32(60.0), mat.slice[1], "we should have 20*3=60")
 }
 
+func testGet(t *testing.T) {
+	mat := NewMatrix(1, 2)
+	mat.slice[0] = 10.0
+	mat.slice[1] = 20.0
+	val1, _ := mat.Get(0, 0)
+	val2, _ := mat.Get(0, 1)
+	assert.Equal(t, float32(10.0), val1, "we should have 10")
+	assert.Equal(t, float32(20.0), val2, "we should have 20")
+}
+
 func benchmarkNewMatrix(rows int, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		NewMatrix(rows, 100)

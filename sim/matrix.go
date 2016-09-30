@@ -65,13 +65,13 @@ func (m *Matrix) Redims(nr, nc int) error {
 	return nil
 }
 
-//GET change the dimension and copy previous state on new array double
+//GET the value at coordinate of the matrix
 func (m *Matrix) Get(r, c int) (float32, error) {
-	if r > m.rows {
+	if r >= m.rows {
 		return 0, fmt.Errorf("matrix.get: rows %d > %d", r, m.rows)
 	}
 
-	if c > m.cols {
+	if c >= m.cols {
 		return 0, fmt.Errorf("matrix.get: cols %d > %d", c, m.cols)
 	}
 

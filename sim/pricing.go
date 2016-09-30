@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	ergp "golang.org/x/sync/errgroup"
 )
+
+type routine func() error
 
 type PricingRequest struct {
 	trade Trade
@@ -21,31 +25,39 @@ type Pricer struct {
 	out    chan<- PricingResponse
 }
 
-func (pricer *Pricer) Init(workers int) {
+func (pricer *Pricer) Init(parent context.Context, workers int, modulo int) {
+	g, ctx := ergp.WithContext(parent)
 	for i := 0; i < workers; i++ {
-		go pricer.newPricingEngine(i)
+		g.Go(pricer.newPricingWorker(ctx, i, modulo))
 	}
+
+	go func() {
+		error := g.Wait()
+		fmt.Printf("Pricing finished  %v : %v\n", error, time.Now())
+		close(pricer.out)
+	}()
 }
 
-func (pricer *Pricer) newPricingEngine(name int) {
-	var priced = 0
-	for req := range pricer.in {
-		//fmt.Printf("Pricing %v with %v\n", trd.Id, name)
-		price, _ := pricer.market.Price(req.trade)
-		priced = priced + 1
-		if priced%100 == 0 {
-			fmt.Printf("Pricer %v has done %v: %v\n", name, priced, time.Now())
+func (pricer *Pricer) newPricingWorker(ctx context.Context, name int, modulo int) routine {
+	return func() error {
+		var priced = 0
+		fmt.Printf("Starting pricing worker %v \n", name)
+		for req := range pricer.in {
+			fmt.Printf("Pricing %v with %v\n", req.trade.Id, name)
+			price, err := pricer.market.Price(req.trade)
+			if err != nil {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("Aborting pricing %v", name)
+			case pricer.out <- PricingResponse{req.trade, price.Matrix}:
+				priced = priced + 1
+				if priced%modulo == 0 {
+					fmt.Printf("Pricer %v has done %v: %v\n", name, priced, time.Now())
+				}
+			}
 		}
-		pricer.out <- PricingResponse{req.trade, price.Matrix}
-	}
-}
-
-func (pricer *Pricer) Price(ctx context.Context, trd Trade) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("Cancelled")
-	default:
-		pricer.in <- PricingRequest{trd}
 		return nil
 	}
 }
