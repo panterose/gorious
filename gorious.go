@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -12,7 +13,7 @@ func main() {
 	const rows = 1000
 	const cols = 100
 
-	nbNetting := 1000
+	nbNetting := 5
 	nbTrades := nbNetting * 1000
 	tradePerNetting := nbTrades / nbNetting
 
@@ -25,20 +26,29 @@ func main() {
 		}
 		name := "netting" + strconv.Itoa(n)
 		nettings[n] = sim.Netting{Name: name, Trades: trades}
+
+		fmt.Printf("Netting %v = %v  : %v \n", name, nettings[n], time.Now())
 	}
 
 	//setup simulation and aggregation
-	market := sim.Market{sim.NewRandomMatrix(rows, cols, 0)}
+	market := sim.Market{Matrix: sim.NewRandomMatrix(rows, cols, 0)}
 
 	trades := make(chan sim.PricingRequest)
 	prices := make(chan sim.PricingResponse)
 	results := make(chan float32)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	pricer := sim.Pricer{Market: market, In: trades, Out: prices}
+	netter := sim.NettingGroup{Nettings: make(map[string]*sim.NettingEngine), Prices: prices, Results: results}
+	pricer.Init(ctx, 2, 100)
+	netter.Init(ctx, nettings, 5)
 	start := time.Now()
 
 	//send some trades to be prices
 	for i := 0; i < nbTrades; i++ {
-		trades <- sim.NewTrade(i)
+		trades <- sim.PricingRequest{Trade: sim.NewTrade(i)}
 	}
 	fmt.Printf("Finished sending trade request, closing the trade channel : %v \n", time.Now())
 	close(trades)

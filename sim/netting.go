@@ -23,29 +23,16 @@ type NettingRequest struct {
 }
 
 type NettingGroup struct {
-	nettings map[string]*NettingEngine
-	prices   chan PricingResponse
-	results  chan float32
-}
-
-// CreateNettingEngines allows to create the netting/engine map needed to create a NettingGroup
-func CreateNettingEngines(nettings []Netting, out chan float32) map[string]*NettingEngine {
-	nettingMap := make(map[string]*NettingEngine)
-	for _, netting := range nettings {
-
-		in := make(chan NettingRequest)
-		total := NewMatrix(1000, 20)
-		ne := NettingEngine{netting, total, in, out}
-		nettingMap[netting.Name] = &ne
-	}
-	return nettingMap
+	Nettings map[string]*NettingEngine
+	Prices   chan PricingResponse
+	Results  chan float32
 }
 
 func (ng *NettingGroup) findNettingEngine(t Trade) (*NettingEngine, error) {
 	id := t.Id
-	for _, engine := range ng.nettings {
-		for tradeID := range engine.netting.Trades {
-			if tradeID == id {
+	for _, engine := range ng.Nettings {
+		for _, trade := range engine.netting.Trades {
+			if trade.Id == id {
 				return engine, nil
 			}
 		}
@@ -56,7 +43,7 @@ func (ng *NettingGroup) findNettingEngine(t Trade) (*NettingEngine, error) {
 
 func (ng *NettingGroup) close() {
 	fmt.Printf("Closing NettingGroup: %v \n", time.Now())
-	for _, engine := range ng.nettings {
+	for _, engine := range ng.Nettings {
 		close(engine.in)
 	}
 }
@@ -68,12 +55,14 @@ func (ng *NettingGroup) Init(parent context.Context, nettings []Netting, nbroute
 
 		in := make(chan NettingRequest)
 		total := NewMatrix(1000, 20)
-		ne := &NettingEngine{netting: netting, Result: total, in: in, out: ng.results}
-		ng.nettings[netting.Name] = ne
+		ne := &NettingEngine{netting: netting, Result: total, in: in, out: ng.Results}
+		ng.Nettings[netting.Name] = ne
 		g1.Go(ne.newNettingWorker(ctx))
 	}
 	go func() {
-		g1.Wait()
+		err := g1.Wait()
+		fmt.Printf("Netting is finished with %v: %v \n", err, time.Now())
+		close(ng.Results)
 	}()
 
 	g2, ctx := ergp.WithContext(parent)
@@ -81,14 +70,18 @@ func (ng *NettingGroup) Init(parent context.Context, nettings []Netting, nbroute
 		g2.Go(ng.newNettingRouter(ctx, i))
 	}
 	go func() {
-		g2.Wait()
+		err := g2.Wait()
+		if err != nil {
+			fmt.Printf("Routing is finished with %v: %v \n", err, time.Now())
+		}
 		ng.close()
 	}()
 }
 
 func (ng *NettingGroup) newNettingRouter(ctx context.Context, name int) routine {
 	return func() error {
-		for price := range ng.prices {
+		var done = 0
+		for price := range ng.Prices {
 			engine, err := ng.findNettingEngine(price.trade)
 			if err != nil {
 				return err
@@ -97,7 +90,10 @@ func (ng *NettingGroup) newNettingRouter(ctx context.Context, name int) routine 
 			case <-ctx.Done():
 				return fmt.Errorf("Cancelled")
 			case engine.in <- NettingRequest{price.trade, price.price}:
-				fmt.Printf("routed %v to %v: \n", price.trade.Id, engine.netting.Name)
+				done = done + 1
+				if done%100 == 0 {
+					fmt.Printf("routed %v to %v: \n", price.trade.Id, engine.netting.Name)
+				}
 			}
 		}
 		return nil
@@ -114,12 +110,18 @@ type NettingEngine struct {
 
 func (ne *NettingEngine) newNettingWorker(ctx context.Context) routine {
 	return func() error {
+		var done = 0
 		for nr := range ne.in {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			default:
 				ne.aggregate(nr)
+				done = done + 1
+				if done%100 == 0 {
+					fmt.Printf("netting %v to %v: \n", nr.trade.Id, ne.netting.Name)
+				}
+
 			}
 		}
 		fmt.Printf("Aggregation for %v done, result=%v : %v \n", ne.netting.Name, ne.result(), time.Now())
@@ -129,7 +131,7 @@ func (ne *NettingEngine) newNettingWorker(ctx context.Context) routine {
 }
 
 func (ne *NettingEngine) aggregate(nr NettingRequest) {
-	fmt.Printf("aggregate %v on %v: %v \n", nr.trade.Id, ne.netting.Name, time.Now())
+	//fmt.Printf("aggregate %v on %v: %v \n", nr.trade.Id, ne.netting.Name, time.Now())
 	ne.Result.Add(nr.price)
 }
 
