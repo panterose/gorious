@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -15,19 +16,32 @@ func main() {
 
 	nbNetting := 1000
 	nbTrades := nbNetting * 1000
-	tradePerNetting := nbTrades / nbNetting
+	nbworkers := 10
+	modulo := (nbTrades / nbworkers) / 10
+	//modulo := 1
+	//	tradePerNetting := nbTrades / nbNetting
 
-	//create the output channel
-	nettings := make([]sim.Netting, nbNetting)
-	for n := 0; n < nbNetting; n++ {
-		trades := make(map[int]sim.Trade, tradePerNetting)
-		for t := 0; t < tradePerNetting; t++ {
-			trades[t] = sim.NewTrade(n + t*nbNetting)
+	// create a random mapping
+	r := rand.New(rand.NewSource(1))
+	tradeMapping := make(map[int][]int, nbTrades)
+	for t := 0; t < nbTrades; t++ {
+		net := r.Intn(nbNetting)
+		tradeMapping[net] = append(tradeMapping[net], t)
+	}
+	//fmt.Printf("tradeMapping %v \n", tradeMapping)
+
+	// create the Netting based on the mapping
+	nettings := make([]*sim.Netting, nbNetting)
+	for n, tradeIds := range tradeMapping {
+		trades := make(map[int]sim.Trade, len(tradeIds))
+		for _, t := range tradeIds {
+			trade := sim.NewTrade(t)
+			trades[t] = trade
 		}
 		name := "netting" + strconv.Itoa(n)
-		nettings[n] = sim.Netting{Name: name, Trades: trades}
+		nettings[n] = sim.NewNetting(name, trades)
 
-		//fmt.Printf("Netting %v = %v  : %v \n", name, nettings[n], time.Now())
+		fmt.Printf("Netting %v = %v \n", name, nettings[n].Size())
 	}
 
 	//setup simulation and aggregation
@@ -42,8 +56,8 @@ func main() {
 
 	pricer := sim.Pricer{Market: market, In: trades, Out: prices}
 	netter := sim.NettingGroup{Nettings: make(map[string]*sim.NettingEngine), Prices: prices, Results: results}
-	pricer.Init(ctx, 10, tradePerNetting)
-	netter.Init(ctx, nettings, 10, tradePerNetting)
+	pricer.Init(ctx, nbworkers, modulo)
+	netter.Init(ctx, nettings, nbworkers, modulo)
 	start := time.Now()
 
 	//send some trades to be prices
