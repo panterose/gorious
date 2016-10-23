@@ -13,12 +13,12 @@ var (
 	trade11  = Trade{1, "id1", 1.0}
 	trade12  = Trade{2, "id2", 1.0}
 	trades1  = map[int]Trade{1: trade11, 2: trade12}
-	netting1 = Netting{"n1", trades1}
+	netting1 = NewNetting("n1", trades1)
 
 	trade21  = Trade{3, "id3", 1.0}
 	trade22  = Trade{4, "id4", 1.0}
 	trades2  = map[int]Trade{3: trade21, 4: trade22}
-	netting2 = Netting{"n2", trades2}
+	netting2 = NewNetting("n2", trades2)
 )
 
 func TestNettingEngineWorker(t *testing.T) {
@@ -26,7 +26,7 @@ func TestNettingEngineWorker(t *testing.T) {
 	in := make(chan NettingRequest)
 	out := make(chan float32)
 
-	ne := NettingEngine{netting1, mat, in, out}
+	ne := NettingEngine{*netting1, mat, in, out}
 	price := NewRandomMatrix(1, 2, 1)
 	ctx := context.Background()
 	go ne.newNettingWorker(ctx, 1)()
@@ -37,8 +37,8 @@ func TestNettingEngineWorker(t *testing.T) {
 	result := <-out
 	close(out)
 
-	assert.Equal(t, float32(604.6603), ne.Result.slice[0])
-	assert.Equal(t, float32(940.5091), ne.Result.slice[1])
+	assert.Equal(t, float32(604.6603), ne.mat.slice[0])
+	assert.Equal(t, float32(940.5091), ne.mat.slice[1])
 	assert.Equal(t, float32(604.6603), result)
 }
 
@@ -50,16 +50,16 @@ func TestNettingGroup(t *testing.T) {
 	nettingMap := make(map[string]*NettingEngine)
 	ng := NettingGroup{nettingMap, in, out}
 	ctx := context.Background()
-	ng.Init(ctx, []Netting{netting1, netting2}, 1, 1)
+	ng.Init(ctx, []*Netting{netting1, netting2}, 1, 1)
 
 	ne1 := ng.Nettings["n1"]
 	ne2 := ng.Nettings["n2"]
-	assert.Equal(t, netting1, ne1.netting)
-	assert.Equal(t, trade11, ne1.netting.Trades[1])
-	assert.Equal(t, trade12, ne1.netting.Trades[2])
-	assert.Equal(t, netting2, ne2.netting)
-	assert.Equal(t, trade21, ne2.netting.Trades[3])
-	assert.Equal(t, trade22, ne2.netting.Trades[4])
+	assert.Equal(t, *netting1, ne1.netting)
+	assert.Equal(t, trade11, ne1.netting.trades[1])
+	assert.Equal(t, trade12, ne1.netting.trades[2])
+	assert.Equal(t, *netting2, ne2.netting)
+	assert.Equal(t, trade21, ne2.netting.trades[3])
+	assert.Equal(t, trade22, ne2.netting.trades[4])
 
 	go func() {
 		in <- PricingResponse{trade11, NewRandomMatrix(1, 2, 1)}
@@ -73,6 +73,6 @@ func TestNettingGroup(t *testing.T) {
 	<-out
 	<-out
 
-	assert.Equal(t, float32(771.9569), ne1.result())
-	assert.Equal(t, float32(963.3544), ne2.result())
+	assert.Equal(t, float32(771.9569), ne1.Result())
+	assert.Equal(t, float32(963.3544), ne2.Result())
 }

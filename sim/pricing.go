@@ -32,9 +32,9 @@ func (pricer *Pricer) Init(parent context.Context, workers int, modulo int) {
 	}
 
 	go func() {
+		defer close(pricer.Out)
 		error := g.Wait()
 		fmt.Printf("Pricing finished  %v : %v\n", error, time.Now())
-		close(pricer.Out)
 	}()
 }
 

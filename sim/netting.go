@@ -82,7 +82,7 @@ func (ng *NettingGroup) findNettingEngine3(t Trade) (*NettingEngine, error) {
 			}
 		}
 	}
-	return nileng, fmt.Errorf("Can't find netting for %v", t)
+	return nileng, fmt.Errorf("Can't find netting 3 for %v", t)
 }
 
 func (ng *NettingGroup) close() {
